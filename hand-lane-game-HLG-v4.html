@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HAND.RUN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060810;
+  --surface: #0c1020;
+  --border: #1a2540;
+  --accent: #00f5c4;
+  --accent2: #7b61ff;
+  --warn: #ff6b35;
+  --gold: #ffcc44;
+  --dim: #2a3a5a;
+  --text: #8ba8cc;
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Orbitron', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+/* ── LAYOUT ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── TOP BAR ── */
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#logo {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+}
+#logo span { color: var(--accent2); }
+#stats {
+  display: flex;
+  gap: 14px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+#stats .val { color: var(--accent); font-size: 0.78rem; }
+#stats .combo-display { color: var(--gold); font-size: 0.78rem; transition: transform 0.1s; }
+#stats .combo-display.pop { transform: scale(1.3); }
+
+/* ── CAMERA ZONE ── */
+#camZone {
+  position: relative;
+  width: 100%;
+  flex-shrink: 0;
+  background: #000;
+  overflow: hidden;
+}
+#camZone::before {
+  content: '';
+  display: block;
+  padding-top: 52%;
+}
+#camFeed {
+  position: absolute;
+  inset: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+#overlayCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* scanline effect */
+#camZone::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+}
+/* corner markers */
+.corner {
+  position: absolute;
+  width: 14px; height: 14px;
+  border-color: var(--accent);
+  border-style: solid;
+  opacity: 0.6;
+  z-index: 2;
+}
+.tl { top:6px; left:6px; border-width:1.5px 0 0 1.5px; }
+.tr { top:6px; right:6px; border-width:1.5px 1.5px 0 0; }
+.bl { bottom:6px; left:6px; border-width:0 0 1.5px 1.5px; }
+.br { bottom:6px; right:6px; border-width:0 1.5px 1.5px 0; }
+
+/* gesture badge */
+#gestureBadge {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(6,8,16,0.82);
+  border: 1px solid var(--border);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 3px 12px;
+  border-radius: 2px;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+  z-index: 3;
+  transition: color 0.2s, border-color 0.2s;
+}
+#gestureBadge.open { color: var(--accent); border-color: var(--accent); }
+#gestureBadge.two { color: #ffcc44; border-color: #ffcc44; }
+#gestureBadge.detected { color: var(--accent2); border-color: var(--accent2); }
+
+/* ── HINT ROW ── */
+#hintRow {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 5px 10px;
+  font-size: 0.62rem;
+  color: var(--dim);
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#hintRow .h { color: var(--text); }
+
+/* ── GAME CANVAS ── */
+#gameWrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── START OVERLAY ── */
+#startOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6,8,16,0.85);
+  z-index: 10;
+}
+#startOverlay h2 {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  margin-bottom: 6px;
+}
+#startOverlay p {
+  font-size: 0.7rem;
+  color: var(--dim);
+  margin-bottom: 8px;
+  letter-spacing: 0.06em;
+}
+#startBtn {
+  font-family: var(--display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 2px;
+  padding: 12px 36px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+  margin-top: 16px;
+}
+#startBtn:active { opacity: 0.7; }
+#startOverlay .sub {
+  font-size: 0.62rem;
+  color: var(--dim);
+  margin-top: 10px;
+  letter-spacing: 0.05em;
+}
+#startOverlay .tip-list {
+  font-size: 0.6rem;
+  color: var(--dim);
+  margin-top: 6px;
+  text-align: center;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+}
+#startOverlay .tip-list span { color: var(--accent); }
+
+/* ── CAM STATUS ── */
+#camStatus {
+  position: absolute;
+  top: 4px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: var(--warn);
+  letter-spacing: 0.05em;
+  z-index: 3;
+  white-space: nowrap;
+}
+
+/* screen flash overlay */
+#flashOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.08s;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div id="logo">HAND<span>.</span>RUN</div>
+    <div id="stats">
+      SCR <span class="val" id="scoreVal">000000</span>
+      BEST <span class="val" id="bestVal">000000</span>
+      <span id="comboWrap" style="display:none">×<span class="combo-display" id="comboVal">1</span></span>
+    </div>
+  </div>
+
+  <!-- CAMERA ZONE -->
+  <div id="camZone">
+    <video id="camFeed" autoplay playsinline muted></video>
+    <canvas id="overlayCanvas"></canvas>
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+    <div id="gestureBadge">INITIALIZING SENSOR...</div>
+    <div id="camStatus"></div>
+  </div>
+
+  <!-- HINT ROW -->
+  <div id="hintRow">
+    <span><span class="h">✋ FULL OPEN</span> → KANAN</span>
+    <span>|</span>
+    <span>KIRI ← <span class="h">2 JARI ✌</span></span>
+  </div>
+
+  <!-- GAME CANVAS -->
+  <div id="gameWrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="flashOverlay"></div>
+    <div id="startOverlay">
+      <h2>HAND.RUN</h2>
+      <p>GESTURE-CONTROLLED LANE RUNNER</p>
+      <div class="tip-list">
+        <span>✋ PALM TERBUKA</span> → geser kanan<br>
+        <span>✌ DUA JARI</span> → geser kiri<br>
+        hindari rintangan · kumpulkan combo
+      </div>
+      <button id="startBtn">MULAI</button>
+      <div class="sub">arahkan kamera ke tangan anda</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script>
+// ── REFS ──
+const gameCanvas = document.getElementById('gameCanvas');
+const gc = gameCanvas.getContext('2d');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const oc = overlayCanvas.getContext('2d');
+const video = document.getElementById('camFeed');
+const gestureBadge = document.getElementById('gestureBadge');
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+const scoreVal = document.getElementById('scoreVal');
+const bestVal = document.getElementById('bestVal');
+const comboVal = document.getElementById('comboVal');
+const comboWrap = document.getElementById('comboWrap');
+const camStatus = document.getElementById('camStatus');
+const flashOverlay = document.getElementById('flashOverlay');
+
+// ── GAME STATE ──
+let W, H, LANE_W;
+const NUM_LANES = 5;
+const CHAR_W = 22, CHAR_H = 32;
+let gameRunning = false;
+let score = 0, best = 0;
+let currentLane = 2;
+let obstacles = [];
+let particles = [];
+let floatingTexts = [];
+let frameCount = 0;
+let speed = 4.5;        // FIX: faster starting speed
+let gestureCooldown = 0;
+const GESTURE_COOLDOWN_FRAMES = 18; // FIX: was 24, more responsive
+let pendingMove = null;
+let lastGesture = null;
+let animId = null;
+
+// combo system
+let combo = 1;
+let comboTimer = 0;
+const COMBO_MAX_TIMER = 180; // 3 sec at 60fps
+
+// screen shake
+let shakeX = 0, shakeY = 0;
+
+// invincibility frames after collecting a gap
+let iFrames = 0;
+
+function fmt(n) { return String(Math.floor(n)).padStart(6,'0'); }
+
+function resizeCanvas() {
+  const wrap = document.getElementById('gameWrap');
+  W = wrap.clientWidth;
+  H = wrap.clientHeight;
+  gameCanvas.width = W;
+  gameCanvas.height = H;
+  LANE_W = W / NUM_LANES;
+
+  const cam = document.getElementById('camZone');
+  // Match canvas buffer exactly to CSS display size (no DPR tricks — keep it simple & accurate)
+  const dispW = cam.clientWidth;
+  const dispH = cam.clientHeight;
+  overlayCanvas.width = dispW;
+  overlayCanvas.height = dispH;
+}
+
+window.addEventListener('resize', () => { resizeCanvas(); });
+window.addEventListener('orientationchange', () => { setTimeout(resizeCanvas, 200); });
+resizeCanvas();
+
+// ── LANE HELPERS ──
+function laneX(lane) { return LANE_W * lane + LANE_W / 2; }
+
+// ── FLOATING TEXT ──
+function spawnFloatingText(x, y, text, color) {
+  floatingTexts.push({ x, y, text, color, life: 1, vy: -1.5 });
+}
+
+// ── OBSTACLE PATTERNS ──
+// Pattern types: random, wall (4 lanes, 1 gap), zigzag, double
+let patternQueue = [];
+let lastPatternY = -999;
+
+function generatePattern() {
+  const patternType = Math.random();
+  let lanes = [];
+
+  if (patternType < 0.35) {
+    // single random obstacle
+    lanes = [Math.floor(Math.random() * NUM_LANES)];
+  } else if (patternType < 0.6) {
+    // wall with one gap — all lanes except one
+    const gap = Math.floor(Math.random() * NUM_LANES);
+    for (let i = 0; i < NUM_LANES; i++) if (i !== gap) lanes.push(i);
+  } else if (patternType < 0.78) {
+    // double obstacle, 2 adjacent lanes
+    const start = Math.floor(Math.random() * (NUM_LANES - 1));
+    lanes = [start, start + 1];
+  } else if (patternType < 0.90) {
+    // alternating — 1,3 or 0,2,4
+    lanes = Math.random() < 0.5 ? [0, 2, 4] : [1, 3];
+  } else {
+    // single random
+    lanes = [Math.floor(Math.random() * NUM_LANES)];
+  }
+
+  return lanes.map(lane => {
+    const isBig = Math.random() < 0.22;
+    return { lane, y: -40, w: LANE_W * (isBig ? 0.9 : 0.72), h: isBig ? 20 : 14, type: isBig ? 'wall' : 'spike' };
+  });
+}
+
+function spawnObstaclePattern() {
+  const pattern = generatePattern();
+  pattern.forEach(ob => obstacles.push(ob));
+}
+
+// ── PARTICLE ──
+function spawnParticles(x, y, color, count, spread = 3) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const spd = 1 + Math.random() * spread;
+    particles.push({ x, y, vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd - 1, life: 1, color, size: 1 + Math.random() * 2 });
+  }
+}
+
+// ── SCREEN SHAKE ──
+function triggerShake(intensity) {
+  shakeX = (Math.random() - 0.5) * intensity;
+  shakeY = (Math.random() - 0.5) * intensity;
+  setTimeout(() => { shakeX = 0; shakeY = 0; }, 100);
+}
+
+// ── FLASH ──
+function triggerFlash(color) {
+  flashOverlay.style.background = color;
+  flashOverlay.style.opacity = '0.35';
+  setTimeout(() => { flashOverlay.style.opacity = '0'; }, 80);
+}
+
+// ── DRAW BACKGROUND ──
+function drawBackground() {
+  gc.save();
+  gc.translate(shakeX, shakeY);
+
+  gc.fillStyle = '#060810';
+  gc.fillRect(0, 0, W, H);
+
+  // moving grid lines
+  gc.strokeStyle = '#0e1628';
+  gc.lineWidth = 1;
+  const gridSpacing = 40;
+  for (let y = frameCount % gridSpacing; y < H; y += gridSpacing) {
+    gc.beginPath(); gc.moveTo(0, y); gc.lineTo(W, y); gc.stroke();
+  }
+
+  // speed lines when fast
+  if (speed > 7) {
+    const alpha = Math.min(0.3, (speed - 7) * 0.06);
+    gc.strokeStyle = `rgba(0,245,196,${alpha})`;
+    gc.lineWidth = 0.5;
+    for (let i = 0; i < 6; i++) {
+      const sx = Math.random() * W;
+      const len = 20 + Math.random() * 40;
+      gc.beginPath(); gc.moveTo(sx, 0); gc.lineTo(sx, len); gc.stroke();
+    }
+  }
+
+  // lane dividers
+  for (let i = 1; i < NUM_LANES; i++) {
+    gc.setLineDash([8, 14]);
+    gc.strokeStyle = '#1a2540';
+    gc.lineWidth = 1;
+    gc.beginPath();
+    gc.moveTo(i * LANE_W, 0);
+    gc.lineTo(i * LANE_W, H);
+    gc.stroke();
+  }
+  gc.setLineDash([]);
+
+  // current lane highlight
+  gc.fillStyle = 'rgba(0,245,196,0.025)';
+  gc.fillRect(currentLane * LANE_W, 0, LANE_W, H);
+
+  // lane index labels
+  for (let i = 0; i < NUM_LANES; i++) {
+    gc.fillStyle = '#12192e';
+    gc.font = `10px 'Share Tech Mono', monospace`;
+    gc.textAlign = 'center';
+    gc.fillText(i + 1, laneX(i), 13);
+  }
+
+  gc.restore();
+}
+
+function drawObstacles() {
+  gc.save();
+  gc.translate(shakeX, shakeY);
+
+  obstacles.forEach(ob => {
+    const x = laneX(ob.lane);
+    const isBig = ob.type === 'wall';
+    const color = isBig ? '#ff3a3a' : '#ff6b35';
+
+    gc.save();
+    gc.shadowBlur = 14;
+    gc.shadowColor = color + '88';
+    gc.strokeStyle = color;
+    gc.lineWidth = 1.5;
+    gc.fillStyle = color + '22';
+    gc.beginPath();
+    gc.rect(x - ob.w/2, ob.y, ob.w, ob.h);
+    gc.fill();
+    gc.stroke();
+
+    // inner chevron detail
+    gc.strokeStyle = color + 'aa';
+    gc.lineWidth = 0.7;
+    if (isBig) {
+      // wall has double line
+      gc.beginPath();
+      gc.moveTo(x - ob.w/2 + 4, ob.y + ob.h * 0.35);
+      gc.lineTo(x + ob.w/2 - 4, ob.y + ob.h * 0.35);
+      gc.stroke();
+      gc.beginPath();
+      gc.moveTo(x - ob.w/2 + 4, ob.y + ob.h * 0.65);
+      gc.lineTo(x + ob.w/2 - 4, ob.y + ob.h * 0.65);
+      gc.stroke();
+    } else {
+      // spike has a center mark
+      gc.beginPath();
+      gc.moveTo(x - ob.w/4, ob.y + ob.h/2);
+      gc.lineTo(x + ob.w/4, ob.y + ob.h/2);
+      gc.stroke();
+    }
+    gc.restore();
+  });
+
+  gc.restore();
+}
+
+function drawCharacter() {
+  const x = laneX(currentLane) + shakeX;
+  const y = H - 70 + shakeY;
+
+  gc.save();
+  // outer glow — brighter with higher combo
+  const glowIntensity = Math.min(40, 24 + combo * 4);
+  gc.shadowBlur = glowIntensity;
+  gc.shadowColor = combo >= 4 ? '#ffcc44' : '#00f5c4';
+
+  const bodyColor = combo >= 4 ? '#ffcc44' : '#00f5c4';
+  const fillColor = combo >= 4 ? '#ffcc4422' : '#00f5c422';
+
+  // ship body
+  gc.strokeStyle = bodyColor;
+  gc.lineWidth = 1.5;
+  gc.fillStyle = fillColor;
+  gc.beginPath();
+  gc.moveTo(x, y - CHAR_H/2);
+  gc.lineTo(x + CHAR_W/2, y + CHAR_H/2);
+  gc.lineTo(x, y + CHAR_H/3);
+  gc.lineTo(x - CHAR_W/2, y + CHAR_H/2);
+  gc.closePath();
+  gc.fill();
+  gc.stroke();
+
+  // center line
+  gc.strokeStyle = bodyColor + 'cc';
+  gc.lineWidth = 1;
+  gc.beginPath();
+  gc.moveTo(x, y - CHAR_H/2 + 4);
+  gc.lineTo(x, y + CHAR_H/3 - 2);
+  gc.stroke();
+
+  // thruster trail — varies with speed
+  const trailLen = 14 + speed * 2 + Math.sin(frameCount * 0.35) * 6;
+  const trailColor = combo >= 4 ? '#ff6b35' : '#7b61ff';
+  gc.strokeStyle = trailColor;
+  gc.lineWidth = 2;
+  gc.shadowColor = trailColor;
+  gc.shadowBlur = 12;
+  gc.beginPath();
+  gc.moveTo(x, y + CHAR_H/2);
+  gc.lineTo(x, y + CHAR_H/2 + trailLen);
+  gc.stroke();
+
+  // iFrames: blinking shield
+  if (iFrames > 0 && Math.floor(iFrames / 4) % 2 === 0) {
+    gc.strokeStyle = '#00f5c488';
+    gc.lineWidth = 1;
+    gc.shadowBlur = 20;
+    gc.shadowColor = '#00f5c4';
+    gc.beginPath();
+    gc.arc(x, y, CHAR_W, 0, Math.PI * 2);
+    gc.stroke();
+  }
+
+  gc.restore();
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    gc.save();
+    gc.globalAlpha = p.life;
+    gc.fillStyle = p.color;
+    gc.shadowBlur = 6;
+    gc.shadowColor = p.color;
+    gc.beginPath();
+    gc.arc(p.x + shakeX, p.y + shakeY, p.size, 0, Math.PI*2);
+    gc.fill();
+    gc.restore();
+  });
+}
+
+function drawFloatingTexts() {
+  floatingTexts.forEach(ft => {
+    gc.save();
+    gc.globalAlpha = ft.life;
+    gc.font = `bold 13px 'Orbitron', sans-serif`;
+    gc.fillStyle = ft.color;
+    gc.textAlign = 'center';
+    gc.shadowBlur = 10;
+    gc.shadowColor = ft.color;
+    gc.fillText(ft.text, ft.x + shakeX, ft.y + shakeY);
+    gc.restore();
+  });
+}
+
+function drawHUD() {
+  // bottom status bar
+  gc.fillStyle = '#06081088';
+  gc.fillRect(0, H - 24, W, 24);
+  gc.strokeStyle = '#1a2540';
+  gc.lineWidth = 1;
+  gc.beginPath(); gc.moveTo(0, H-24); gc.lineTo(W, H-24); gc.stroke();
+
+  gc.font = `11px 'Share Tech Mono', monospace`;
+  gc.textAlign = 'left';
+  gc.fillStyle = '#2a3a5a';
+  gc.fillText(`LN:${currentLane+1}`, 10, H - 8);
+
+  gc.textAlign = 'center';
+  gc.fillStyle = '#00f5c455';
+  gc.fillText(`SPD ${speed.toFixed(1)}`, W/2, H-8);
+
+  gc.textAlign = 'right';
+  gc.fillStyle = combo >= 4 ? '#ffcc4488' : '#2a3a5a';
+  gc.fillText(`×${combo} COMBO`, W-10, H-8);
+}
+
+function drawGameOver() {
+  gc.save();
+  gc.fillStyle = 'rgba(6,8,16,0.88)';
+  gc.fillRect(0, 0, W, H);
+
+  gc.font = `bold 1.4rem 'Orbitron', sans-serif`;
+  gc.fillStyle = '#ff3a3a';
+  gc.textAlign = 'center';
+  gc.shadowBlur = 20; gc.shadowColor = '#ff3a3a';
+  gc.fillText('SYSTEM CRASH', W/2, H/2 - 28);
+  gc.shadowBlur = 0;
+
+  gc.font = `0.72rem 'Share Tech Mono', monospace`;
+  gc.fillStyle = '#2a3a5a';
+  gc.fillText(`SCORE: ${fmt(score)}`, W/2, H/2 + 2);
+  gc.fillStyle = '#00f5c466';
+  gc.fillText(score >= best ? 'NEW BEST!' : `BEST: ${fmt(best)}`, W/2, H/2 + 20);
+  gc.restore();
+
+  startOverlay.style.display = 'flex';
+  startOverlay.querySelector('h2').textContent = 'GAME OVER';
+  startOverlay.querySelector('h2').style.color = '#ff3a3a';
+  startOverlay.querySelector('p').textContent = `SCORE: ${fmt(score)}`;
+  startBtn.textContent = 'RESTART';
+}
+
+// ── COLLISION ──
+function checkCollision() {
+  if (iFrames > 0) return false;
+  const cy = H - 70;
+  for (let ob of obstacles) {
+    if (ob.lane === currentLane) {
+      const obCy = ob.y + ob.h / 2;
+      if (Math.abs(cy - obCy) < (CHAR_H/2 + ob.h/2) - 5) return true;
+    }
+  }
+  return false;
+}
+
+// ── DODGE DETECTION (passed obstacle without hitting) ──
+function checkDodge() {
+  const cy = H - 70;
+  obstacles.forEach(ob => {
+    if (!ob.scored && ob.y > cy + CHAR_H/2 + 5) {
+      ob.scored = true;
+      // reward dodge
+      combo = Math.min(combo + 1, 8);
+      comboTimer = COMBO_MAX_TIMER;
+      if (combo >= 2) {
+        spawnFloatingText(laneX(currentLane), H - 100, `×${combo}!`, combo >= 5 ? '#ffcc44' : '#00f5c4');
+        spawnParticles(laneX(currentLane), H - 70, combo >= 5 ? '#ffcc44' : '#00f5c4', 6, 2);
+      }
+      if (combo === 4) triggerFlash('#00f5c4');
+    }
+  });
+}
+
+// ── GAME LOOP ──
+function gameLoop() {
+  if (!gameRunning) return;
+  frameCount++;
+  score += combo * 0.5; // score multiplied by combo!
+
+  // Speed curve: faster ramp, with a meaningful cap
+  speed = 4.5 + Math.floor(score / 250) * 0.4;
+  speed = Math.min(speed, 14);
+
+  // combo timer decay
+  if (comboTimer > 0) {
+    comboTimer--;
+  } else if (combo > 1) {
+    combo = 1;
+    comboWrap.style.display = 'none';
+  }
+
+  // update combo display
+  if (combo >= 2) {
+    comboWrap.style.display = 'inline';
+    comboVal.textContent = combo;
+  }
+
+  if (gestureCooldown > 0) gestureCooldown--;
+
+  if (gestureCooldown === 0 && pendingMove !== null) {
+    const prev = currentLane;
+    currentLane = Math.max(0, Math.min(4, currentLane + pendingMove));
+    if (currentLane !== prev) {
+      spawnParticles(laneX(currentLane), H-70, '#00f5c4', 8);
+    }
+    pendingMove = null;
+    gestureCooldown = GESTURE_COOLDOWN_FRAMES;
+  }
+
+  // Dynamic spawn rate — faster as speed increases
+  const spawnRate = Math.max(28, 70 - Math.floor(score / 200) * 3);
+  if (frameCount % spawnRate === 0) spawnObstaclePattern();
+
+  obstacles.forEach(ob => ob.y += speed);
+  obstacles = obstacles.filter(ob => ob.y < H + 50);
+
+  particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 0.045; });
+  particles = particles.filter(p => p.life > 0);
+
+  floatingTexts.forEach(ft => { ft.y += ft.vy; ft.life -= 0.03; });
+  floatingTexts = floatingTexts.filter(ft => ft.life > 0);
+
+  if (iFrames > 0) iFrames--;
+
+  checkDodge();
+
+  if (checkCollision()) {
+    gameRunning = false;
+    if (score > best) best = score;
+    bestVal.textContent = fmt(best);
+    triggerShake(12);
+    triggerFlash('#ff3a3a');
+    spawnParticles(laneX(currentLane), H-70, '#ff3a3a', 28, 4);
+    setTimeout(() => {
+      drawBackground(); drawObstacles(); drawParticles(); drawCharacter();
+      drawGameOver();
+    }, 200);
+    return;
+  }
+
+  drawBackground();
+  drawObstacles();
+  drawParticles();
+  drawFloatingTexts();
+  drawCharacter();
+  drawHUD();
+
+  scoreVal.textContent = fmt(score);
+
+  animId = requestAnimationFrame(gameLoop);
+}
+
+function resetGame() {
+  score = 0; currentLane = 2; obstacles = []; particles = []; floatingTexts = [];
+  frameCount = 0; speed = 4.5; gestureCooldown = 0;
+  pendingMove = null; lastGesture = null;
+  combo = 1; comboTimer = 0; iFrames = 0; shakeX = 0; shakeY = 0;
+  comboWrap.style.display = 'none';
+}
+
+startBtn.addEventListener('click', () => {
+  if (animId) cancelAnimationFrame(animId);
+  resetGame();
+  startOverlay.style.display = 'none';
+  startOverlay.querySelector('h2').textContent = 'HAND.RUN';
+  startOverlay.querySelector('h2').style.color = '';
+  startOverlay.querySelector('p').textContent = 'GESTURE-CONTROLLED LANE RUNNER';
+  startBtn.textContent = 'MULAI';
+  gameRunning = true;
+  gameLoop();
+});
+
+// Idle draw
+(function idleDraw() {
+  if (gameRunning) return;
+  drawBackground();
+  requestAnimationFrame(idleDraw);
+})();
+
+// ── HAND SKELETON ──
+// FIX: Mirror canvas transform to match video scaleX(-1)
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[0,17],[17,18],[18,19],[19,20]
+];
+
+const FINGER_SEGS = [
+  [1,2,3,4],    // thumb
+  [5,6,7,8],    // index
+  [9,10,11,12], // middle
+  [13,14,15,16],// ring
+  [17,18,19,20],// pinky
+];
+
+const PALETTE = {
+  palm:   '#1a4a3a',
+  bone:   '#00b890',
+  joint:  '#00f5c4',
+  tip:    '#ffffff',
+  tipGlow:'#00f5c4',
+  conn:   '#0d3328',
+};
+
+function drawHandSkeleton(landmarks) {
+  const CW = overlayCanvas.width;
+  const CH = overlayCanvas.height;
+
+  oc.clearRect(0, 0, CW, CH);
+
+  // ── Step 1: Draw mirrored video frame onto canvas ──
+  // This replaces the CSS-hidden <video> element.
+  // We apply the same mirror here so video & skeleton share one coordinate space.
+  oc.save();
+  oc.translate(CW, 0);
+  oc.scale(-1, 1);
+  oc.globalAlpha = 0.35;
+  oc.drawImage(video, 0, 0, CW, CH);
+  oc.globalAlpha = 1;
+  oc.restore();
+
+  // ── Step 2: Draw skeleton using same mirrored transform ──
+  // MediaPipe landmark x=0 is LEFT edge of video frame.
+  // Because we mirror the video (translate+scaleX(-1)), x=0 maps to RIGHT of canvas.
+  // To match, we apply the same mirror to landmark coordinates.
+  oc.save();
+  oc.translate(CW, 0);
+  oc.scale(-1, 1);
+
+  // Landmarks are 0-1 normalized. Map directly to canvas pixels — no offset correction
+  // needed because we're in the same mirrored space as the video drawImage above.
+  function px(lm) {
+    return { x: lm.x * CW, y: lm.y * CH };
+  }
+
+  // Bounding box for adaptive joint sizing
+  let minX = 1, maxX = 0, minY = 1, maxY = 0;
+  landmarks.forEach(lm => {
+    if (lm.x < minX) minX = lm.x;
+    if (lm.x > maxX) maxX = lm.x;
+    if (lm.y < minY) minY = lm.y;
+    if (lm.y > maxY) maxY = lm.y;
+  });
+  const hW = (maxX - minX) * CW;
+  const hH = (maxY - minY) * CH;
+  const handScale = Math.sqrt(hW * hW + hH * hH); // diagonal = more stable than min()
+
+  // inter-finger palm connectors
+  [[5,9],[9,13],[13,17],[0,17],[0,5]].forEach(([a,b]) => {
+    const pa = px(landmarks[a]), pb = px(landmarks[b]);
+    oc.strokeStyle = PALETTE.conn;
+    oc.lineWidth = 1;
+    oc.beginPath();
+    oc.moveTo(pa.x, pa.y);
+    oc.lineTo(pb.x, pb.y);
+    oc.stroke();
+  });
+
+  // bone segments per finger
+  FINGER_SEGS.forEach((seg) => {
+    for (let i = 0; i < seg.length - 1; i++) {
+      const pa = px(landmarks[seg[i]]);
+      const pb = px(landmarks[seg[i+1]]);
+      const thick = Math.max(1, handScale * 0.013 - i * 0.3);
+      oc.save();
+      oc.strokeStyle = PALETTE.bone;
+      oc.lineWidth = thick;
+      oc.shadowBlur = 5;
+      oc.shadowColor = '#00f5c433';
+      oc.beginPath();
+      oc.moveTo(pa.x, pa.y);
+      oc.lineTo(pb.x, pb.y);
+      oc.stroke();
+      oc.restore();
+    }
+  });
+
+  // palm to thumb base
+  const p0 = px(landmarks[0]), p1 = px(landmarks[1]);
+  oc.save();
+  oc.strokeStyle = PALETTE.bone;
+  oc.lineWidth = Math.max(1, handScale * 0.014);
+  oc.shadowBlur = 5; oc.shadowColor = '#00f5c433';
+  oc.beginPath(); oc.moveTo(p0.x, p0.y); oc.lineTo(p1.x, p1.y); oc.stroke();
+  oc.restore();
+
+  // joints
+  landmarks.forEach((lm, i) => {
+    const p = px(lm);
+    const isTip = [4,8,12,16,20].includes(i);
+    const isWrist = i === 0;
+    const isMCP = [5,9,13,17].includes(i);
+
+    const r = isTip
+      ? Math.max(3, handScale * 0.022)
+      : isMCP
+        ? Math.max(2.5, handScale * 0.018)
+        : isWrist
+          ? Math.max(3, handScale * 0.02)
+          : Math.max(1.5, handScale * 0.012);
+
+    oc.save();
+
+    if (isTip) {
+      oc.strokeStyle = PALETTE.joint;
+      oc.lineWidth = 1.2;
+      oc.shadowBlur = 10; oc.shadowColor = PALETTE.tipGlow;
+      oc.beginPath(); oc.arc(p.x, p.y, r, 0, Math.PI*2); oc.stroke();
+      oc.fillStyle = '#ffffff';
+      oc.shadowBlur = 8; oc.shadowColor = '#fff';
+      oc.beginPath(); oc.arc(p.x, p.y, r * 0.35, 0, Math.PI*2); oc.fill();
+    } else if (isMCP) {
+      oc.fillStyle = PALETTE.joint + 'cc';
+      oc.shadowBlur = 6; oc.shadowColor = PALETTE.joint;
+      oc.beginPath();
+      oc.moveTo(p.x, p.y - r);
+      oc.lineTo(p.x + r * 0.7, p.y);
+      oc.lineTo(p.x, p.y + r);
+      oc.lineTo(p.x - r * 0.7, p.y);
+      oc.closePath(); oc.fill();
+    } else if (isWrist) {
+      oc.strokeStyle = PALETTE.joint;
+      oc.lineWidth = 1.2;
+      oc.shadowBlur = 8; oc.shadowColor = PALETTE.joint;
+      oc.strokeRect(p.x - r, p.y - r, r*2, r*2);
+      oc.fillStyle = PALETTE.joint + '33';
+      oc.fillRect(p.x - r, p.y - r, r*2, r*2);
+    } else {
+      oc.fillStyle = '#005542';
+      oc.shadowBlur = 3; oc.shadowColor = PALETTE.joint;
+      oc.beginPath(); oc.arc(p.x, p.y, r, 0, Math.PI*2); oc.fill();
+      oc.strokeStyle = PALETTE.bone + '88';
+      oc.lineWidth = 0.8;
+      oc.beginPath(); oc.arc(p.x, p.y, r, 0, Math.PI*2); oc.stroke();
+    }
+
+    oc.restore();
+  });
+
+  oc.restore(); // restore the mirror transform
+}
+
+// ── GESTURE DETECTION ──
+function countExtendedFingers(lm) {
+  const tips = [8, 12, 16, 20];
+  const pips = [6, 10, 14, 18];
+  let count = 0;
+  for (let i = 0; i < tips.length; i++) {
+    if (lm[tips[i]].y < lm[pips[i]].y) count++;
+  }
+  // thumb check
+  if (Math.abs(lm[4].x - lm[3].x) > 0.04) count++;
+  return count;
+}
+
+// smoothing buffer for gesture stability
+let gestureBuffer = [];
+const GESTURE_BUFFER_SIZE = 4;
+
+function detectGesture(lm) {
+  const n = countExtendedFingers(lm);
+  let raw = 'none';
+  if (n >= 4) raw = 'open';
+  else if (n === 2) raw = 'two';
+
+  gestureBuffer.push(raw);
+  if (gestureBuffer.length > GESTURE_BUFFER_SIZE) gestureBuffer.shift();
+
+  // return gesture only if consistently detected
+  const counts = { open: 0, two: 0, none: 0 };
+  gestureBuffer.forEach(g => counts[g]++);
+  if (counts.open >= 3) return 'open';
+  if (counts.two >= 3) return 'two';
+  return 'none';
+}
+
+// ── MEDIAPIPE ──
+const hands = new Hands({
+  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+});
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.72,
+  minTrackingConfidence: 0.6
+});
+
+hands.onResults(results => {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const lm = results.multiHandLandmarks[0];
+    drawHandSkeleton(lm);
+    const gesture = detectGesture(lm);
+
+    if (gesture === 'open') {
+      gestureBadge.textContent = '[ OPEN PALM ] → KANAN';
+      gestureBadge.className = 'open';
+      if (lastGesture !== 'open' && gameRunning && gestureCooldown === 0) {
+        pendingMove = 1; lastGesture = 'open';
+      }
+    } else if (gesture === 'two') {
+      gestureBadge.textContent = '[ 2 JARI ] → KIRI';
+      gestureBadge.className = 'two';
+      if (lastGesture !== 'two' && gameRunning && gestureCooldown === 0) {
+        pendingMove = -1; lastGesture = 'two';
+      }
+    } else {
+      gestureBadge.textContent = '✦ HAND DETECTED';
+      gestureBadge.className = 'detected';
+      lastGesture = null;
+    }
+  } else {
+    // No hand — still draw mirrored video so camera feed stays visible
+    const CW = overlayCanvas.width, CH = overlayCanvas.height;
+    oc.clearRect(0, 0, CW, CH);
+    oc.save();
+    oc.translate(CW, 0);
+    oc.scale(-1, 1);
+    oc.globalAlpha = 0.35;
+    oc.drawImage(video, 0, 0, CW, CH);
+    oc.globalAlpha = 1;
+    oc.restore();
+    gestureBadge.textContent = '-- NO SIGNAL --';
+    gestureBadge.className = '';
+    lastGesture = null;
+    gestureBuffer = [];
+  }
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => { await hands.send({ image: video }); },
+  width: 640, height: 360
+});
+
+camera.start()
+  .then(() => { camStatus.textContent = ''; })
+  .catch(() => { camStatus.textContent = '⚠ CAMERA ACCESS REQUIRED'; });
+</script>
+</body>
+</html>
