@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HAND.RUN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060810;
+  --surface: #0c1020;
+  --border: #1a2540;
+  --accent: #00f5c4;
+  --accent2: #7b61ff;
+  --warn: #ff6b35;
+  --dim: #2a3a5a;
+  --text: #8ba8cc;
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Orbitron', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+/* ── LAYOUT ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── TOP BAR ── */
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#logo {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+}
+#logo span { color: var(--accent2); }
+#stats {
+  display: flex;
+  gap: 14px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+#stats .val { color: var(--accent); font-size: 0.78rem; }
+
+/* ── CAMERA ZONE ── */
+#camZone {
+  position: relative;
+  width: 100%;
+  flex-shrink: 0;
+  background: #000;
+  overflow: hidden;
+}
+#camZone::before {
+  content: '';
+  display: block;
+  padding-top: 52%;
+}
+#camFeed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 0.35;
+}
+#overlayCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* scanline effect */
+#camZone::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+}
+/* corner markers */
+.corner {
+  position: absolute;
+  width: 14px; height: 14px;
+  border-color: var(--accent);
+  border-style: solid;
+  opacity: 0.6;
+  z-index: 2;
+}
+.tl { top:6px; left:6px; border-width:1.5px 0 0 1.5px; }
+.tr { top:6px; right:6px; border-width:1.5px 1.5px 0 0; }
+.bl { bottom:6px; left:6px; border-width:0 0 1.5px 1.5px; }
+.br { bottom:6px; right:6px; border-width:0 1.5px 1.5px 0; }
+
+/* gesture badge */
+#gestureBadge {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(6,8,16,0.82);
+  border: 1px solid var(--border);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 3px 12px;
+  border-radius: 2px;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+  z-index: 3;
+  transition: color 0.2s, border-color 0.2s;
+}
+#gestureBadge.open { color: var(--accent); border-color: var(--accent); }
+#gestureBadge.two { color: #ffcc44; border-color: #ffcc44; }
+#gestureBadge.detected { color: var(--accent2); border-color: var(--accent2); }
+
+/* ── HINT ROW ── */
+#hintRow {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 5px 10px;
+  font-size: 0.62rem;
+  color: var(--dim);
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#hintRow .h { color: var(--text); }
+
+/* ── GAME CANVAS ── */
+#gameWrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── START OVERLAY (HTML layer) ── */
+#startOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6,8,16,0.85);
+  z-index: 10;
+}
+#startOverlay h2 {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  margin-bottom: 6px;
+}
+#startOverlay p {
+  font-size: 0.7rem;
+  color: var(--dim);
+  margin-bottom: 24px;
+  letter-spacing: 0.06em;
+}
+#startBtn {
+  font-family: var(--display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 2px;
+  padding: 12px 36px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+#startBtn:active { opacity: 0.7; }
+#startOverlay .sub {
+  font-size: 0.62rem;
+  color: var(--dim);
+  margin-top: 10px;
+  letter-spacing: 0.05em;
+}
+
+/* ── CAM STATUS ── */
+#camStatus {
+  position: absolute;
+  top: 4px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: var(--warn);
+  letter-spacing: 0.05em;
+  z-index: 3;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div id="logo">HAND<span>.</span>RUN</div>
+    <div id="stats">
+      SCR <span class="val" id="scoreVal">000000</span>
+      BEST <span class="val" id="bestVal">000000</span>
+      LN <span class="val" id="laneVal">3</span>
+    </div>
+  </div>
+
+  <!-- CAMERA ZONE -->
+  <div id="camZone">
+    <video id="camFeed" autoplay playsinline muted></video>
+    <canvas id="overlayCanvas"></canvas>
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+    <div id="gestureBadge">INITIALIZING SENSOR...</div>
+    <div id="camStatus"></div>
+  </div>
+
+  <!-- HINT ROW -->
+  <div id="hintRow">
+    <span><span class="h">✋ FULL OPEN</span> → KANAN</span>
+    <span>|</span>
+    <span>KIRI ← <span class="h">2 JARI ✌</span></span>
+  </div>
+
+  <!-- GAME CANVAS -->
+  <div id="gameWrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="startOverlay">
+      <h2>HAND.RUN</h2>
+      <p>GESTURE-CONTROLLED LANE RUNNER</p>
+      <button id="startBtn">MULAI</button>
+      <div class="sub">arahkan kamera ke tangan anda</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script>
+// ── REFS ──
+const gameCanvas = document.getElementById('gameCanvas');
+const gc = gameCanvas.getContext('2d');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const oc = overlayCanvas.getContext('2d');
+const video = document.getElementById('camFeed');
+const gestureBadge = document.getElementById('gestureBadge');
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+const scoreVal = document.getElementById('scoreVal');
+const bestVal = document.getElementById('bestVal');
+const laneVal = document.getElementById('laneVal');
+const camStatus = document.getElementById('camStatus');
+
+// ── GAME STATE ──
+let W, H, LANE_W;
+const NUM_LANES = 5;
+const CHAR_W = 22, CHAR_H = 32;
+let gameRunning = false;
+let score = 0, best = 0;
+let currentLane = 2;
+let obstacles = [];
+let particles = [];
+let frameCount = 0;
+let speed = 3.5;
+let gestureCooldown = 0;
+let pendingMove = null;
+let lastGesture = null;
+let animId = null;
+
+function fmt(n) { return String(n).padStart(6,'0'); }
+
+function resizeCanvas() {
+  const wrap = document.getElementById('gameWrap');
+  W = wrap.clientWidth;
+  H = wrap.clientHeight;
+  gameCanvas.width = W;
+  gameCanvas.height = H;
+  LANE_W = W / NUM_LANES;
+
+  const cam = document.getElementById('camZone');
+  overlayCanvas.width = cam.clientWidth;
+  overlayCanvas.height = cam.clientHeight;
+}
+
+window.addEventListener('resize', () => { resizeCanvas(); });
+window.addEventListener('orientationchange', () => { setTimeout(resizeCanvas, 200); });
+resizeCanvas();
+
+// ── LANE HELPERS ──
+function laneX(lane) { return LANE_W * lane + LANE_W / 2; }
+
+// ── OBSTACLE ──
+function spawnObstacle() {
+  const blocked = new Set(obstacles.filter(o => o.y < 0 || o.y < 80).map(o => o.lane));
+  let lane;
+  let tries = 0;
+  do { lane = Math.floor(Math.random() * NUM_LANES); tries++; } while (blocked.has(lane) && tries < 10);
+  const isBig = Math.random() < 0.25;
+  obstacles.push({ lane, y: -40, w: LANE_W * (isBig ? 0.88 : 0.7), h: isBig ? 18 : 14, type: isBig ? 'wall' : 'spike' });
+}
+
+// ── PARTICLE ──
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const spd = 1 + Math.random() * 3;
+    particles.push({ x, y, vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd - 1, life: 1, color });
+  }
+}
+
+// ── DRAW GAME ──
+function drawBackground() {
+  gc.fillStyle = '#060810';
+  gc.fillRect(0, 0, W, H);
+
+  // subtle grid lines
+  gc.strokeStyle = '#0e1628';
+  gc.lineWidth = 1;
+  const gridSpacing = 40;
+  for (let y = frameCount % gridSpacing; y < H; y += gridSpacing) {
+    gc.beginPath(); gc.moveTo(0, y); gc.lineTo(W, y); gc.stroke();
+  }
+
+  // lane dividers
+  for (let i = 1; i < NUM_LANES; i++) {
+    gc.setLineDash([8, 14]);
+    gc.strokeStyle = '#1a2540';
+    gc.lineWidth = 1;
+    gc.beginPath();
+    gc.moveTo(i * LANE_W, 0);
+    gc.lineTo(i * LANE_W, H);
+    gc.stroke();
+  }
+  gc.setLineDash([]);
+
+  // lane index labels (very subtle)
+  for (let i = 0; i < NUM_LANES; i++) {
+    gc.fillStyle = '#12192e';
+    gc.font = `10px 'Share Tech Mono', monospace`;
+    gc.textAlign = 'center';
+    gc.fillText(i + 1, laneX(i), 13);
+  }
+}
+
+function drawObstacles() {
+  obstacles.forEach(ob => {
+    const x = laneX(ob.lane);
+    const isBig = ob.type === 'wall';
+    const color = isBig ? '#ff3a3a' : '#ff6b35';
+    const glow = isBig ? '#ff3a3a' : '#ff6b35';
+
+    gc.save();
+    gc.shadowBlur = 14;
+    gc.shadowColor = glow + '88';
+    gc.strokeStyle = color;
+    gc.lineWidth = 1.5;
+    gc.fillStyle = color + '22';
+    gc.beginPath();
+    gc.rect(x - ob.w/2, ob.y, ob.w, ob.h);
+    gc.fill();
+    gc.stroke();
+
+    // inner line detail
+    gc.strokeStyle = color + 'aa';
+    gc.lineWidth = 0.5;
+    gc.beginPath();
+    gc.moveTo(x - ob.w/2 + 4, ob.y + ob.h/2);
+    gc.lineTo(x + ob.w/2 - 4, ob.y + ob.h/2);
+    gc.stroke();
+    gc.restore();
+  });
+}
+
+function drawCharacter() {
+  const x = laneX(currentLane);
+  const y = H - 70;
+
+  gc.save();
+  // outer glow
+  gc.shadowBlur = 24;
+  gc.shadowColor = '#00f5c4';
+
+  // ship body
+  gc.strokeStyle = '#00f5c4';
+  gc.lineWidth = 1.5;
+  gc.fillStyle = '#00f5c422';
+  gc.beginPath();
+  gc.moveTo(x, y - CHAR_H/2);
+  gc.lineTo(x + CHAR_W/2, y + CHAR_H/2);
+  gc.lineTo(x, y + CHAR_H/3);
+  gc.lineTo(x - CHAR_W/2, y + CHAR_H/2);
+  gc.closePath();
+  gc.fill();
+  gc.stroke();
+
+  // center line
+  gc.strokeStyle = '#00f5c4cc';
+  gc.lineWidth = 1;
+  gc.beginPath();
+  gc.moveTo(x, y - CHAR_H/2 + 4);
+  gc.lineTo(x, y + CHAR_H/3 - 2);
+  gc.stroke();
+
+  // thruster trail
+  const trailLen = 18 + Math.sin(frameCount * 0.3) * 5;
+  gc.strokeStyle = '#7b61ff';
+  gc.lineWidth = 2;
+  gc.shadowColor = '#7b61ff';
+  gc.shadowBlur = 12;
+  gc.beginPath();
+  gc.moveTo(x, y + CHAR_H/2);
+  gc.lineTo(x, y + CHAR_H/2 + trailLen);
+  gc.stroke();
+  gc.restore();
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    gc.save();
+    gc.globalAlpha = p.life;
+    gc.fillStyle = p.color;
+    gc.shadowBlur = 6;
+    gc.shadowColor = p.color;
+    gc.beginPath();
+    gc.arc(p.x, p.y, 2, 0, Math.PI*2);
+    gc.fill();
+    gc.restore();
+  });
+}
+
+function drawHUD() {
+  // bottom status bar
+  gc.fillStyle = '#06081088';
+  gc.fillRect(0, H - 24, W, 24);
+  gc.strokeStyle = '#1a2540';
+  gc.lineWidth = 1;
+  gc.beginPath(); gc.moveTo(0, H-24); gc.lineTo(W, H-24); gc.stroke();
+
+  gc.font = `11px 'Share Tech Mono', monospace`;
+  gc.fillStyle = '#2a3a5a';
+  gc.textAlign = 'left';
+  gc.fillText(`LN:${currentLane+1}`, 10, H - 8);
+  gc.textAlign = 'center';
+  gc.fillStyle = '#00f5c455';
+  gc.fillText(`SPD ${speed.toFixed(1)}`, W/2, H-8);
+  gc.textAlign = 'right';
+  gc.fillStyle = '#2a3a5a';
+  gc.fillText(`FRM:${fmt(frameCount).slice(-4)}`, W-10, H-8);
+}
+
+function drawGameOver() {
+  gc.save();
+  gc.fillStyle = 'rgba(6,8,16,0.88)';
+  gc.fillRect(0, 0, W, H);
+
+  gc.font = `bold 1.4rem 'Orbitron', sans-serif`;
+  gc.fillStyle = '#ff3a3a';
+  gc.textAlign = 'center';
+  gc.shadowBlur = 20; gc.shadowColor = '#ff3a3a';
+  gc.fillText('SYSTEM CRASH', W/2, H/2 - 28);
+  gc.shadowBlur = 0;
+
+  gc.font = `0.72rem 'Share Tech Mono', monospace`;
+  gc.fillStyle = '#2a3a5a';
+  gc.fillText(`SCORE: ${fmt(score)}`, W/2, H/2 + 2);
+  gc.fillStyle = '#00f5c466';
+  gc.fillText(score > best - score ? 'NEW BEST!' : `BEST: ${fmt(best)}`, W/2, H/2 + 20);
+  gc.restore();
+
+  // Update overlay button text
+  startOverlay.style.display = 'flex';
+  startOverlay.querySelector('h2').textContent = 'GAME OVER';
+  startOverlay.querySelector('h2').style.color = '#ff3a3a';
+  startOverlay.querySelector('p').textContent = `SCORE: ${fmt(score)}`;
+  startBtn.textContent = 'RESTART';
+}
+
+// ── COLLISION ──
+function checkCollision() {
+  const cy = H - 70;
+  for (let ob of obstacles) {
+    if (ob.lane === currentLane) {
+      const obCy = ob.y + ob.h / 2;
+      if (Math.abs(cy - obCy) < (CHAR_H/2 + ob.h/2) - 6) return true;
+    }
+  }
+  return false;
+}
+
+// ── GAME LOOP ──
+function gameLoop() {
+  if (!gameRunning) return;
+  frameCount++;
+  score++;
+  speed = 3.5 + Math.floor(score / 400) * 0.5;
+
+  if (gestureCooldown > 0) gestureCooldown--;
+  if (gestureCooldown === 0 && pendingMove !== null) {
+    const prev = currentLane;
+    currentLane = Math.max(0, Math.min(4, currentLane + pendingMove));
+    if (currentLane !== prev) spawnParticles(laneX(currentLane), H-70, '#00f5c4', 8);
+    pendingMove = null;
+    gestureCooldown = 24;
+  }
+
+  const spawnRate = Math.max(36, 75 - Math.floor(score / 300) * 4);
+  if (frameCount % spawnRate === 0) spawnObstacle();
+
+  obstacles.forEach(ob => ob.y += speed);
+  obstacles = obstacles.filter(ob => ob.y < H + 50);
+
+  particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= 0.05; });
+  particles = particles.filter(p => p.life > 0);
+
+  if (checkCollision()) {
+    gameRunning = false;
+    if (score > best) best = score;
+    bestVal.textContent = fmt(best);
+    spawnParticles(laneX(currentLane), H-70, '#ff3a3a', 24);
+    drawBackground(); drawObstacles(); drawParticles(); drawCharacter();
+    drawGameOver();
+    return;
+  }
+
+  drawBackground();
+  drawObstacles();
+  drawParticles();
+  drawCharacter();
+  drawHUD();
+
+  scoreVal.textContent = fmt(score);
+  laneVal.textContent = currentLane + 1;
+
+  animId = requestAnimationFrame(gameLoop);
+}
+
+function resetGame() {
+  score = 0; currentLane = 2; obstacles = []; particles = [];
+  frameCount = 0; speed = 3.5; gestureCooldown = 0;
+  pendingMove = null; lastGesture = null;
+}
+
+startBtn.addEventListener('click', () => {
+  if (animId) cancelAnimationFrame(animId);
+  resetGame();
+  startOverlay.style.display = 'none';
+  startOverlay.querySelector('h2').textContent = 'HAND.RUN';
+  startOverlay.querySelector('h2').style.color = '';
+  gameRunning = true;
+  gameLoop();
+});
+
+// Idle draw
+(function idleDraw() {
+  if (gameRunning) return;
+  drawBackground();
+  requestAnimationFrame(idleDraw);
+})();
+
+// ── HAND SKELETON ──
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[0,17],[17,18],[18,19],[19,20]
+];
+
+// Finger segments: [palm, mcp, pip, dip, tip]
+const FINGER_SEGS = [
+  [1,2,3,4],       // thumb
+  [5,6,7,8],       // index
+  [9,10,11,12],    // middle
+  [13,14,15,16],   // ring
+  [17,18,19,20],   // pinky
+];
+
+// Monochrome cyberpunk palette — green terminal + dim connections
+const PALETTE = {
+  palm:   '#1a4a3a',   // very dim palm
+  bone:   '#00b890',   // main bone line
+  joint:  '#00f5c4',   // joint dot
+  tip:    '#ffffff',   // fingertip
+  tipGlow:'#00f5c4',
+  conn:   '#0d3328',   // inter-finger connectors
+};
+
+function drawHandSkeleton(landmarks) {
+  const CW = overlayCanvas.width;
+  const CH = overlayCanvas.height;
+  oc.clearRect(0, 0, CW, CH);
+
+  // compute bounding box to scale skeleton to actual hand size
+  let minX = 1, maxX = 0, minY = 1, maxY = 0;
+  landmarks.forEach(lm => {
+    if (lm.x < minX) minX = lm.x;
+    if (lm.x > maxX) maxX = lm.x;
+    if (lm.y < minY) minY = lm.y;
+    if (lm.y > maxY) maxY = lm.y;
+  });
+  // hand bounding size in pixels
+  const hW = (maxX - minX) * CW;
+  const hH = (maxY - minY) * CH;
+  const handScale = Math.min(hW, hH); // approx hand size
+
+  function px(lm) {
+    return { x: lm.x * CW, y: lm.y * CH };
+  }
+
+  // inter-finger connectors (knuckle row: 5-9-13-17)
+  oc.save();
+  oc.strokeStyle = PALETTE.conn;
+  oc.lineWidth = 1;
+  [[5,9],[9,13],[13,17],[0,17],[0,5]].forEach(([a,b]) => {
+    const pa = px(landmarks[a]), pb = px(landmarks[b]);
+    oc.beginPath();
+    oc.moveTo(pa.x, pa.y);
+    oc.lineTo(pb.x, pb.y);
+    oc.stroke();
+  });
+  oc.restore();
+
+  // bone segments per finger
+  FINGER_SEGS.forEach((seg, fi) => {
+    // draw bones
+    for (let i = 0; i < seg.length - 1; i++) {
+      const pa = px(landmarks[seg[i]]);
+      const pb = px(landmarks[seg[i+1]]);
+      // bone thickness relative to hand size
+      const thick = Math.max(1, handScale * 0.013 - i * 0.3);
+      oc.save();
+      oc.strokeStyle = PALETTE.bone;
+      oc.lineWidth = thick;
+      oc.shadowBlur = 5;
+      oc.shadowColor = '#00f5c433';
+      oc.beginPath();
+      oc.moveTo(pa.x, pa.y);
+      oc.lineTo(pb.x, pb.y);
+      oc.stroke();
+      oc.restore();
+    }
+  });
+
+  // palm connection 0→1 (thumb base)
+  oc.save();
+  const p0 = px(landmarks[0]), p1 = px(landmarks[1]);
+  oc.strokeStyle = PALETTE.bone;
+  oc.lineWidth = Math.max(1, handScale * 0.014);
+  oc.shadowBlur = 5; oc.shadowColor = '#00f5c433';
+  oc.beginPath(); oc.moveTo(p0.x, p0.y); oc.lineTo(p1.x, p1.y); oc.stroke();
+  oc.restore();
+
+  // joints
+  landmarks.forEach((lm, i) => {
+    const p = px(lm);
+    const isTip = [4,8,12,16,20].includes(i);
+    const isWrist = i === 0;
+    const isMCP = [5,9,13,17].includes(i);
+
+    // radius scaled to hand size
+    const r = isTip
+      ? Math.max(3, handScale * 0.022)
+      : isMCP
+        ? Math.max(2.5, handScale * 0.018)
+        : isWrist
+          ? Math.max(3, handScale * 0.02)
+          : Math.max(1.5, handScale * 0.012);
+
+    oc.save();
+
+    if (isTip) {
+      // tip: hollow ring + bright center dot
+      oc.strokeStyle = PALETTE.joint;
+      oc.lineWidth = 1.2;
+      oc.shadowBlur = 10;
+      oc.shadowColor = PALETTE.tipGlow;
+      oc.beginPath(); oc.arc(p.x, p.y, r, 0, Math.PI*2); oc.stroke();
+      oc.fillStyle = '#ffffff';
+      oc.shadowBlur = 8; oc.shadowColor = '#fff';
+      oc.beginPath(); oc.arc(p.x, p.y, r * 0.35, 0, Math.PI*2); oc.fill();
+    } else if (isMCP) {
+      // knuckle: diamond shape
+      oc.fillStyle = PALETTE.joint + 'cc';
+      oc.shadowBlur = 6; oc.shadowColor = PALETTE.joint;
+      oc.beginPath();
+      oc.moveTo(p.x, p.y - r);
+      oc.lineTo(p.x + r * 0.7, p.y);
+      oc.lineTo(p.x, p.y + r);
+      oc.lineTo(p.x - r * 0.7, p.y);
+      oc.closePath(); oc.fill();
+    } else if (isWrist) {
+      // wrist: square
+      oc.strokeStyle = PALETTE.joint;
+      oc.lineWidth = 1.2;
+      oc.shadowBlur = 8; oc.shadowColor = PALETTE.joint;
+      oc.strokeRect(p.x - r, p.y - r, r*2, r*2);
+      oc.fillStyle = PALETTE.joint + '33';
+      oc.fillRect(p.x - r, p.y - r, r*2, r*2);
+    } else {
+      // PIP/DIP: small filled circle
+      oc.fillStyle = '#005542';
+      oc.shadowBlur = 3; oc.shadowColor = PALETTE.joint;
+      oc.beginPath(); oc.arc(p.x, p.y, r, 0, Math.PI*2); oc.fill();
+      oc.strokeStyle = PALETTE.bone + '88';
+      oc.lineWidth = 0.8;
+      oc.beginPath(); oc.arc(p.x, p.y, r, 0, Math.PI*2); oc.stroke();
+    }
+
+    oc.restore();
+  });
+
+  // landmark index labels (tiny, barely visible — "programmer" feel)
+  oc.save();
+  oc.font = `${Math.max(7, handScale*0.045)}px 'Share Tech Mono', monospace`;
+  oc.fillStyle = '#00f5c428';
+  landmarks.forEach((lm, i) => {
+    if ([0,4,8,12,16,20].includes(i)) {
+      const p = px(lm);
+      oc.fillText(i, p.x + 5, p.y - 5);
+    }
+  });
+  oc.restore();
+}
+
+// ── GESTURE DETECTION ──
+function countExtendedFingers(lm) {
+  const tips = [8, 12, 16, 20];
+  const pips = [6, 10, 14, 18];
+  let count = 0;
+  for (let i = 0; i < tips.length; i++) {
+    if (lm[tips[i]].y < lm[pips[i]].y) count++;
+  }
+  // thumb (mirrored camera)
+  if (Math.abs(lm[4].x - lm[3].x) > 0.04) count++;
+  return count;
+}
+
+function detectGesture(lm) {
+  const n = countExtendedFingers(lm);
+  if (n >= 4) return 'open';
+  if (n === 2) return 'two';
+  return 'none';
+}
+
+// ── MEDIAPIPE ──
+const hands = new Hands({
+  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+});
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.72,
+  minTrackingConfidence: 0.6
+});
+
+hands.onResults(results => {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const lm = results.multiHandLandmarks[0];
+    drawHandSkeleton(lm);
+    const gesture = detectGesture(lm);
+
+    if (gesture === 'open') {
+      gestureBadge.textContent = '[ OPEN PALM ] → KANAN';
+      gestureBadge.className = 'open';
+      if (lastGesture !== 'open' && gameRunning && gestureCooldown === 0) {
+        pendingMove = 1; lastGesture = 'open';
+      }
+    } else if (gesture === 'two') {
+      gestureBadge.textContent = '[ 2 JARI ] → KIRI';
+      gestureBadge.className = 'two';
+      if (lastGesture !== 'two' && gameRunning && gestureCooldown === 0) {
+        pendingMove = -1; lastGesture = 'two';
+      }
+    } else {
+      gestureBadge.textContent = '✦ HAND DETECTED';
+      gestureBadge.className = 'detected';
+      lastGesture = null;
+    }
+  } else {
+    oc.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    gestureBadge.textContent = '-- NO SIGNAL --';
+    gestureBadge.className = '';
+    lastGesture = null;
+  }
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => { await hands.send({ image: video }); },
+  width: 640, height: 360
+});
+
+camera.start()
+  .then(() => { camStatus.textContent = ''; })
+  .catch(() => { camStatus.textContent = '⚠ CAMERA ACCESS REQUIRED'; });
+</script>
+</body>
+</html>
