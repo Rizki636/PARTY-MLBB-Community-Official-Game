@@ -1,1 +1,1 @@
-# -PARTY-MLBB-Community-Official-Game
+# PARTY-MLBB-Community-Official-Game
